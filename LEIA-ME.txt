@@ -1,0 +1,32 @@
+RESET DAS ALMOFADAS - EPSON L1250 / L3250
+==========================================
+
+PRIMEIRA VEZ (precisa de internet):
+  1. Clique duas vezes em INSTALAR.bat e aguarde terminar.
+
+PARA RESETAR:
+  1. Conecte a impressora ao PC pelo CABO USB (uma por vez) e ligue-a.
+     O reset permanente NAO funciona pelo Wi-Fi nesses modelos.
+  2. Clique duas vezes em RESETAR.bat.
+  3. Escolha o modelo (1 = L1250, 2 = L3250).
+  4. Opcao 2 = RESET permanente. Confirme com S.
+  5. Desligue a impressora, aguarde 10 segundos e ligue de novo.
+
+OUTRAS OPCOES:
+  - Opcao 1: mostra o nivel atual das almofadas.
+  - Opcao 3: reset temporario (libera ate desligar a impressora).
+  - Para testar sem gravar nada:  RESETAR.bat --simular
+
+SEGURANCA:
+  - Antes de cada reset, os valores originais sao salvos na pasta "backups".
+  - Cada byte gravado e relido e conferido; se algo nao bater, o programa avisa.
+  - O reset so zera o CONTADOR. Se as almofadas estiverem cheias de verdade,
+    a tinta pode vazar. Limpe/troque as almofadas ou instale um coletor externo.
+
+SE DER ERRO "a impressora nao respondeu":
+  - Confira o cabo USB e se a impressora esta ligada e pronta;
+  - Feche o "Epson Status Monitor" e outros programas da Epson;
+  - Desconecte e reconecte o cabo e tente de novo.
+
+Motor de comunicacao: epson_print_conf (open-source)
+https://github.com/Ircama/epson_print_conf

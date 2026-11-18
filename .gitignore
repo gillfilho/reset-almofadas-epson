@@ -1,0 +1,13 @@
+# baixado pelo INSTALAR.bat
+motor/
+motor.zip
+# ambientes Python
+.venv/
+.build-venv/
+# build
+.build-tmp/
+dist/
+build/
+__pycache__/
+# backups da EEPROM das impressoras (dados locais)
+backups/
