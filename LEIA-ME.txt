@@ -18,6 +18,9 @@ OUTRAS OPCOES:
   - Para testar sem gravar nada:  RESETAR.bat --simular
 
 SEGURANCA:
+  - O programa confere o modelo informado pela propria impressora. Se nao for
+    L1250/L3250, ou for diferente do escolhido, o reset e BLOQUEADO.
+  - Durante a gravacao, NAO desligue a impressora nem desconecte o cabo.
   - Antes de cada reset, os valores originais sao salvos na pasta "backups".
   - Cada byte gravado e relido e conferido; se algo nao bater, o programa avisa.
   - O reset so zera o CONTADOR. Se as almofadas estiverem cheias de verdade,

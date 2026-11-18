@@ -17,6 +17,8 @@ import copy
 import datetime
 import logging
 import os
+import re
+import signal
 import sys
 from pathlib import Path
 
@@ -50,6 +52,14 @@ PERFIS = {
     "L1250": dict(_PERFIL_BASE, alias=["L1256", "L1258", "L1259"]),
     "L3250": dict(_PERFIL_BASE, alias=["L3251", "L3253", "L3255",
                                        "L3256", "L3257", "L3258", "L3259"]),
+}
+
+# Modelos que a impressora pode informar (campo MDL do comando "di").
+# Qualquer outro modelo e BLOQUEADO: outro mapa de EEPROM poderia ser corrompido.
+MODELOS_ACEITOS = {
+    "L1250": ("L1250", "L1256", "L1258", "L1259"),
+    "L3250": ("L3250", "L3251", "L3253", "L3255",
+              "L3256", "L3257", "L3258", "L3259"),
 }
 
 NOMES_CONTADORES = {
@@ -104,6 +114,41 @@ def conectar(classe, modelo, simular, backend=None):
     # copia: o motor altera o dicionario recebido (expande os "alias")
     return classe(conf_dict=copy.deepcopy(PERFIS), model=modelo,
                   dry_run=simular, **extra)
+
+
+def modelo_conectado(imp):
+    """Pergunta o modelo a propria impressora (comando 'di', campo MDL)."""
+    try:
+        resp = imp.fetch_oid_values(imp.epctrl_snmp_oid("di", 1),
+                                    label="device_id")[0][1]
+    except TimeoutError:
+        raise
+    except Exception:
+        return None
+    if not isinstance(resp, (bytes, bytearray)):
+        return None
+    m = re.search(rb"MDL:([^;]+);", bytes(resp))
+    return m.group(1).decode("ascii", "replace").strip() if m else None
+
+
+def verificar_modelo(imp, modelo):
+    """True somente se a impressora conectada for da familia escolhida."""
+    mdl = modelo_conectado(imp)
+    if not mdl:
+        print("BLOQUEADO: a impressora nao informou o modelo.")
+        print("Por seguranca, nada sera gravado.")
+        return False
+    print(f"Impressora detectada: {mdl}")
+    for familia, nomes in MODELOS_ACEITOS.items():
+        if any(re.search(rf"\b{n}\b", mdl) for n in nomes):
+            if familia != modelo:
+                print(f"BLOQUEADO: voce escolheu {modelo}, mas a impressora")
+                print(f"conectada e {mdl}. Saia e escolha o modelo correto.")
+                return False
+            return True
+    print("BLOQUEADO: este programa so funciona com L1250 e L3250.")
+    print("Gravar nesta impressora poderia danifica-la. Nada foi alterado.")
+    return False
 
 
 def ler_niveis(imp):
@@ -161,7 +206,9 @@ def acao_ver(imp):
 
 def acao_reset(imp, modelo, simular):
     linha()
-    print("Niveis ATUAIS:")
+    if not verificar_modelo(imp, modelo):
+        return
+    print("\nNiveis ATUAIS:")
     if ler_niveis(imp) is None and not simular:
         print("Reset cancelado: a impressora nao respondeu a leitura.")
         return
@@ -178,7 +225,13 @@ def acao_reset(imp, modelo, simular):
         print("Cancelado.")
         return
     relatorio = []
-    ok = imp.reset_waste_ink_levels(report=relatorio)
+    print("Gravando... NAO desligue a impressora nem desconecte o cabo.")
+    # Ctrl+C ignorado durante a gravacao para nao interromper a sequencia
+    anterior = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    try:
+        ok = imp.reset_waste_ink_levels(report=relatorio)
+    finally:
+        signal.signal(signal.SIGINT, anterior)
     linha()
     if simular:
         print("SIMULACAO: nenhum byte foi gravado.")
@@ -190,17 +243,26 @@ def acao_reset(imp, modelo, simular):
         ler_niveis(imp)
         print("\n>>> DESLIGUE a impressora, aguarde 10 segundos e LIGUE de novo. <<<")
     else:
-        print("FALHA no reset. Nada foi confirmado pela impressora.")
+        gravados = sum(1 for r in relatorio if r[3])
+        print("FALHA no reset. A impressora nao confirmou todas as gravacoes.")
+        if gravados:
+            print(f"({gravados} bytes chegaram a ser zerados; isso nao danifica a")
+            print(" impressora - os valores originais estao no backup.)")
         print("Verifique o cabo USB e tente novamente. Detalhes acima.")
 
 
-def acao_temporario(imp):
+def acao_temporario(imp, modelo, simular):
     linha()
+    if not verificar_modelo(imp, modelo):
+        return
     print("O reset temporario libera a impressora ATE ELA SER DESLIGADA.")
     print("Nao altera a EEPROM. Util para imprimir algo urgente.")
     if perguntar("Continuar? (S/N): ", {"S", "N"}) != "S":
         return
-    if imp.temporary_reset_waste():
+    if imp.temporary_reset_waste(dry_run=simular):
+        if simular:
+            print("SIMULACAO: comando nao enviado.")
+            return
         print("Reset temporario aplicado. NAO desligue a impressora.")
     else:
         print("A impressora nao confirmou o reset temporario.")
@@ -256,7 +318,7 @@ def main():
                 elif op == "2":
                     acao_reset(imp, modelo, args.simular)
                 elif op == "3":
-                    acao_temporario(imp)
+                    acao_temporario(imp, modelo, args.simular)
             except TimeoutError as exc:
                 print("\nERRO: a impressora nao respondeu pelo USB.")
                 print("  - Confira se esta ligada e conectada pelo cabo USB;")

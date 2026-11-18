@@ -29,6 +29,8 @@ O firmware dessas impressoras bloqueia o acesso à EEPROM pela rede (Wi-Fi/SNMP)
 
 ## Segurança
 
+- Antes de gravar, o programa **pergunta o modelo à própria impressora**. Se não for L1250/L3250 (ou uma variante), se for diferente do modelo escolhido no menu ou se a impressora não informar o modelo, o reset é **bloqueado** e nada é gravado. Outro modelo tem outro mapa de memória e poderia ser danificado.
+- Durante a gravação (poucos segundos), Ctrl+C é ignorado e o programa avisa para não desligar a impressora nem desconectar o cabo.
 - Antes de cada reset, os valores originais são salvos na pasta `backups`, ao lado do programa.
 - Cada byte gravado é **relido e conferido**. Se a impressora responder “OK” sem gravar, o programa mostra falha.
 - Se a primeira leitura ou o backup falharem, o reset é cancelado antes de gravar qualquer coisa.
